@@ -25,7 +25,7 @@ namespace Shootdodge
             {
                 return name;
             }
-            return "Unknown";
+            return null;
         }
 
         public static void FacePosition(this Ped ped, Vector3 pos)

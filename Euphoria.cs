@@ -6,7 +6,7 @@ public static class Euphoria
   public static void SendNMMessage(this Ped ped, NMMessage id, int duration = -1)
   {
     ped.CanRagdoll = true;
-    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped, duration, duration, 1, 1, 1, 0);
+    Function.Call(Hash.SET_PED_TO_RAGDOLL, ped, duration, duration, 1, true, true, false);
     Function.Call(Hash.CREATE_NM_MESSAGE, true,(int) id);
     Function.Call(Hash.GIVE_PED_NM_MESSAGE, ped);
   }
