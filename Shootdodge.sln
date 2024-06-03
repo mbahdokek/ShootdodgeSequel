@@ -1,0 +1,21 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.9.34723.18
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Shootdodge", "Shootdodge.csproj", "{8AC1EF75-7B26-4E75-A1A1-8BDBB3AB1846}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{8AC1EF75-7B26-4E75-A1A1-8BDBB3AB1846}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{8AC1EF75-7B26-4E75-A1A1-8BDBB3AB1846}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{8AC1EF75-7B26-4E75-A1A1-8BDBB3AB1846}.Release|Any CPU.ActiveCfg = Release|x64
+		{8AC1EF75-7B26-4E75-A1A1-8BDBB3AB1846}.Release|Any CPU.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
