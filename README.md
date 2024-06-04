@@ -16,9 +16,6 @@ Features:
 <li>Config for changing time scale and dodging forces</li>
 <li>Character will stay prone on the floor in aiming mode on landing unless move keys are pressed</li>
 </ul>
-<b>How to Install:</b>
-Inside the rar there are 3 things: Shootdodge.dll, Shootdodge.ini and the Shootdodge folder. Put all of them into /scripts folder, the usual for script mods, located in gta main folder
-After installation, In-game you can activate Shootdodge with J. You can change the key  and other stuff in the .ini config 
 
 Requirement:
 ScriptHookVDotNet3, preferably the <a href="https://github.com/scripthookvdotnet/scripthookvdotnet-nightly">Nightly Version</a>
