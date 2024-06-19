@@ -11,30 +11,26 @@ namespace Shootdodge
 {
     public class Main : Script
     {
-        private int currentScriptStatus;
+        public static int currentScriptStatus;
         private string animName;
         private string animDict;
         private Ped player = Game.Player.Character;
         private Vector3 forceDirection;
         private Vector3 playerVelocity;
         private Color barColor;
-        private uint playerWeap;
+        private uint playerWpn;
         private bool DoNothing = false;
         private bool EnemyNerfed = false;
         private bool highGround = false;
         private bool onTopVehicle = false;
+        private static bool gamepadPress = false;
+        private static DateTime gamepadTimer;
         private float dodgeEnergy = 100.0f;
         private float lastEnergy = 100.0f;
         private float VehSpeed;
         private float energyMod;
         private float stanceModifier;
-        private float groundHeight2;
-        private readonly float timeScaleCfg = Configs.timeScale;
-        private readonly float hudScaleDiv = Configs.hudScaleDiv;
-        private readonly float hudPosX = Configs.hudPosX;
-        private readonly float hudPosY = Configs.hudPosY;
-        private readonly float xyForce = Configs.forceFwd;
-        private readonly float zForce = Configs.forceUp;
+        private float groundHeight;
         private float slomoSpeed;
         private ScriptSound soundCue1;
         private ScriptSound slomoSound;
@@ -72,9 +68,9 @@ namespace Shootdodge
 
             dodgeEnergy -= energyCost + energyMod;
             float health = player.Health;
-            if(health > 0.5 * player.MaxHealth)
-            slomoSpeed = timeScaleCfg / 1.125f;
-            else slomoSpeed = timeScaleCfg;
+            if (health > 0.5 * player.MaxHealth)
+                slomoSpeed = Configs.timeScale / 1.125f;
+            else slomoSpeed = Configs.timeScale;
             onTopVehicle = false;
 
             if (Configs.enableSfx)
@@ -88,8 +84,7 @@ namespace Shootdodge
                 return;
 
             float LR = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisX);
-            float UD = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisY);
-            bool flag = player.IsInCover;
+            float FB = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisY);
             if (player.Speed > 9f)
             {
                 onTopVehicle = true;
@@ -98,87 +93,92 @@ namespace Shootdodge
             player.Task.ClearAllImmediately();
             player.IsCollisionProof = false;
             player.FacePosition(GameplayCamera.Position + GameplayCamera.Direction * 1000f);
-            Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
+            Game.Player.ForcedAim = false;
 
-            if (flag)
+            string front_dive = "dive_start_run";
+            string dive_left = "react_front_dive_left";
+            string dive_right = "react_front_dive_right";
+            float heading = 0f;
+
+            if (player.IsInCover)
             {
-                animName = "dive_start_run";
-                forceDirection = player.ForwardVector.Normalized * -xyForce + Vector3.RelativeTop * zForce;
+                animName = front_dive;
+                forceDirection = player.ForwardVector.Normalized * -Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
                 player.FacePosition(GameplayCamera.Position + GameplayCamera.Direction * -1000f);
-                player.Task.PlayAnimation("move_jump", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                heading = 0f;
             }
-            if (LR == 0.0f && UD == -1.0f)
+            if (LR == 0.0f && FB >= -1.0f && FB < 0.0f)
             {
-                animName = "dive_start_run";
-                forceDirection = player.ForwardVector.Normalized * xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_jump", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = front_dive;
+                forceDirection = player.ForwardVector.Normalized * Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 0f;
             }
-            else if (LR == 0.0f && UD == 1.0f)
+            else if (LR == 0.0f && FB <= 1.0f && FB > 0.0f)
             {
-                animName = "dive_start_run";
-                forceDirection = player.ForwardVector.Normalized * -xyForce + Vector3.RelativeTop * zForce;
+                animName = front_dive;
+                forceDirection = player.ForwardVector.Normalized * -Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
                 player.FacePosition(GameplayCamera.Position + GameplayCamera.Direction * -1000f);
-                player.Task.PlayAnimation("move_jump", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                heading = 0f;
             }
             //LR
-            else if (LR == -1.0f && UD == 0.0f)
+            else if (LR >= -1.0f && LR < 0.0f && FB == 0.0f)
             {
-                animName = "react_front_dive_left";
-                forceDirection = player.RightVector.Normalized * -xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = dive_left;
+                forceDirection = player.RightVector.Normalized * -Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 0f;
             }
-            else if (LR == 1.0f && UD == 0.0f)
+            else if (LR <= 1.0f && LR > 0.0f && FB == 0.0f)
             {
-                animName = "react_front_dive_right";
-                forceDirection = player.RightVector.Normalized * xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
-
+                animName = dive_right;
+                forceDirection = player.RightVector.Normalized * Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 0f;
             }
             //Diagonal
-            else if (LR == -1.0f && UD == -1.0f)
+            else if (LR >= -1.0f && LR < 0.0f && FB >= -1.0f && FB < 0.0f)
             {
-                animName = "react_front_dive_left";
-                forceDirection = player.RightVector.Normalized * -xyForce + player.ForwardVector.Normalized * xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
-
+                animName = front_dive;
+                forceDirection = player.RightVector.Normalized * -Configs.xyForce + player.ForwardVector.Normalized * Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 45f;
             }
-            else if (LR == -1.0f && UD == 1.0f)
+            else if (LR >= -1.0f && LR < 0.0f && FB <= 1.0f && FB > 0.0f)
             {
-                animName = "react_front_dive_left";
-                forceDirection = player.RightVector.Normalized * -xyForce + player.ForwardVector.Normalized * -xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = front_dive;
+                forceDirection = player.RightVector.Normalized * -Configs.xyForce + player.ForwardVector.Normalized * -Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 135f;
             }
-            else if (LR == 1.0f && UD == -1.0f)
+            else if (LR <= 1.0f && LR > 0.0f && FB >= -1.0f && FB < 0.0f)
             {
-                animName = "react_front_dive_right";
-                forceDirection = player.RightVector.Normalized * xyForce + player.ForwardVector.Normalized * xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = front_dive;
+                forceDirection = player.RightVector.Normalized * Configs.xyForce + player.ForwardVector.Normalized * Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = 315f;
             }
-            else if (LR == 1.0f && UD == 1.0f)
+            else if (LR <= 1.0f && LR > 0.0f && FB <= 1.0f && FB > 0.0f)
             {
-                animName = "react_front_dive_right";
-                forceDirection = player.RightVector.Normalized * xyForce + player.ForwardVector.Normalized * -xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_avoidance@generic_m", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = front_dive;
+                forceDirection = player.RightVector.Normalized * Configs.xyForce + player.ForwardVector.Normalized * -Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
+                heading = -45f;
             }
             else
             {
-                animName = "dive_start_run";
-                forceDirection = player.ForwardVector.Normalized * xyForce + Vector3.RelativeTop * zForce;
-                player.Task.PlayAnimation("move_jump", animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+                animName = front_dive;
+                forceDirection = player.ForwardVector.Normalized * Configs.xyForce + Vector3.RelativeTop * Configs.zForce;
             }
             Audio.SetAudioFlag(AudioFlags.AllowScriptedSpeechInSlowMo, true);
             Function.Call(Hash.PLAY_PAIN, player, 22, 0, 0);
             Function.Call(Hash.REQUEST_MISSION_AUDIO_BANK, "HUNTING_MAIN_A", false, -1);
-            if (animName == "dive_start_run") animDict = "move_jump";
+            if (animName == front_dive)
+                animDict = "move_jump";
             else animDict = "move_avoidance@generic_m";
+            //player.Task.PlayAnimation(animDict, animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
+            player.Task.PlayAnimationAdvanced(new CrClipAsset(animDict, animName), player.Position, player.Rotation + new Vector3(0, 0, heading), AnimationBlendDelta.NormalBlendIn, new AnimationBlendDelta(1f), -1);
             ++currentScriptStatus;
             DiveSound();
         }
 
         private void OnTick(object sender, EventArgs e)
         {
-            if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && Vector3.Distance(World.Raycast(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelSpine0, 0f, 0f, 0f), 
-                Vector3.RelativeBottom, 1000f, IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player).HitPosition, player.Position) < 1.2f) 
+            if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && Vector3.Distance(World.Raycast(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelSpine0, 0f, 0f, 0f),
+                Vector3.RelativeBottom, 1000f, IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player).HitPosition, player.Position) < 1.2f)
                 ApplyForcesUpw();
             if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && player.Speed < 9f)
                 ApplyForcesFwd();
@@ -188,27 +188,16 @@ namespace Shootdodge
             if (EnemyNerfed && Game.TimeScale == 1.0f)
                 ResetEnemy();
 
-            if (player.IsDead
-                            || Game.IsPaused
-                            || Game.IsCutsceneActive
-                            || Game.IsLoading
-                            || player.IsRagdoll
-                            || player.IsOnFire
-                            || player.IsJumping
-                            || player.IsFalling
-                            || player.IsInWaterStrict
-                            || player.IsInAir
-                            || player.IsInVehicle()
-                            || !Function.Call<bool>(Hash.IS_PED_ARMED, player, 4)
-                            || player.IsPlayingAnimation(new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up"))
-                            || player.IsGettingUp)
+            if (player.IsDead || Game.IsPaused || Game.IsCutsceneActive || Game.IsLoading || player.IsRagdoll || player.IsOnFire || player.IsJumping || player.IsFalling
+            || player.IsInWater || player.IsSwimming || player.IsInAir || player.IsInVehicle() || !Function.Call<bool>(Hash.IS_PED_ARMED, player, 4)
+            || player.IsPlayingAnimation(new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up")) || player.IsGettingUp)
                 DoNothing = true;
             else DoNothing = false;
 
             player = Game.Player.Character;
             playerVelocity = player.Velocity;
 
-            if (Game.Player.IsAiming && Game.IsEnabledControlJustPressed(GTA.Control.Jump) && Game.LastInputMethod == InputMethod.GamePad && Configs.controllerOn)
+            if (Configs.controllerOn && Game.LastInputMethod == InputMethod.GamePad && Game.IsEnabledControlJustPressed(GTA.Control.Reload) && GamepadTimer())
                 ActivateShootdodge();
 
             if (dodgeEnergy < maxEnergy && currentScriptStatus == 0)
@@ -235,75 +224,49 @@ namespace Shootdodge
                 Function.Call(Hash.HUD_SUPPRESS_WEAPON_WHEEL_RESULTS_THIS_FRAME);
             }
 
-            if (currentScriptStatus >= 1 && (player.IsDead || player.IsInWaterStrict))
+            if (currentScriptStatus >= 1 && (player.IsDead || player.IsInWater))
             {
-                Function.Call(Hash.ANIMPOSTFX_STOP_ALL);
-                player.CanRagdoll = true;
-                player.IsCollisionEnabled = true;
-                Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
-                player.Task.ClearAll();
-                EndAudio();
-                Game.TimeScale = 1f;
-                currentScriptStatus = 0;
+                Euphoria.SendNMMessage(player, Euphoria.NMMessage.bodyFoetal, 1500);
+                ResetState();
             }
 
             if (currentScriptStatus == 2)
-            World.GetGroundHeight(player.Position, out groundHeight2, GetGroundHeightMode.Normal);
-            if (currentScriptStatus == 2 && (player.Position.Z > groundHeight2 + 7.0f))
+                World.GetGroundHeight(player.Position, out groundHeight, GetGroundHeightMode.Normal);
+
+            if (currentScriptStatus == 2 && (player.Position.Z > groundHeight + 7.0f))
             {
                 player.IsCollisionProof = false;
-                player.CanRagdoll = true;
-                player.IsCollisionEnabled = true;
                 player.SendNMMessage(Euphoria.NMMessage.highFall, 3000);
-                Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
                 player.Velocity = new Vector3(playerVelocity.X / 2f, playerVelocity.Y / 2f, playerVelocity.Z / 2f);
-                player.Task.ClearAll();
-                EndAudio();
-                Game.TimeScale = 1f;
-                Function.Call(Hash.ANIMPOSTFX_STOP_ALL);
-                currentScriptStatus = 0;
+                ResetState();
             }
 
             if (currentScriptStatus > 2 && player.IsRagdoll)
             {
                 player.IsCollisionProof = true;
-                player.CanRagdoll = true;
-                player.IsCollisionEnabled = true;
-                Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
-                player.Task.ClearAll();
-                EndAudio();
-                Game.TimeScale = 1f;
-                Function.Call(Hash.ANIMPOSTFX_STOP_ALL);
-                currentScriptStatus = 0;
+                ResetState();
             }
 
             else if ((currentScriptStatus == 1 || currentScriptStatus == 2 || currentScriptStatus == 3)
                      && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, 0f, 0f, 0.075f).DidHit)
             {
-                Function.Call(Hash.ANIMPOSTFX_STOP_ALL);
-                player.CanRagdoll = true;
                 player.IsCollisionProof = true;
-                player.IsCollisionEnabled = true;
-                Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
-                player.Task.ClearAll();
-                EndAudio();
                 player.SendNMMessage(Euphoria.NMMessage.braceForImpact, 1500);
-                Game.TimeScale = 1f;
-                currentScriptStatus = 0;
+                ResetState();
             }
             else
             {
                 switch (currentScriptStatus)
                 {
                     case 1:
-                        if (Function.Call<float>(Hash.GET_ENTITY_ANIM_CURRENT_TIME, player, animDict, animName) < 0.4f) //if (Game.GameTime < gameTimer)
+                        if (player.GetAnimationCurrentTime(new CrClipAsset(animDict, animName)) < 0.4f)
                             break;
                         if (DoNothing || Game.TimeScale < 1.0f)
                             break;
                         Function.Call(Hash.PLAY_PAIN, player, 11, 0, 0);
-                        Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, true);
+                        Game.Player.ForcedAim = true;
                         player.Task.ClearAll();
-                        Function.Call(Hash.TASK_AIM_GUN_SCRIPTED, player, Function.Call<Hash>(Hash.GET_HASH_KEY, "SCRIPTED_GUN_TASK_PLANE_WING"), 1, 1);
+                        Function.Call(Hash.TASK_AIM_GUN_SCRIPTED, player, StringHash.AtStringHash("SCRIPTED_GUN_TASK_PLANE_WING"), 1, 1);
                         Game.TimeScale = slomoSpeed;
                         NerfEnemy();
                         player.CanRagdoll = false;
@@ -313,22 +276,24 @@ namespace Shootdodge
                         ++currentScriptStatus;
                         break;
                     case 2:
-                        if (player.Position.Z > groundHeight2 + 3.35f) highGround = true;
+                        if (player.Position.Z > groundHeight + 3.55f)
+                            highGround = true;
+                        else highGround = false;
                         if (!Capsule2(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelPelvis, 0f, 0f, 0f), 0.290f, 0.0f, 0f, 0f).DidHit)
                             break;
                         Function.Call(Hash.ANIMPOSTFX_STOP, "FocusIn");
                         Function.Call(Hash.ANIMPOSTFX_PLAY, "FocusOut", 0, false);
                         player.Velocity = new Vector3(playerVelocity.X / 2f, playerVelocity.Y / 2f, playerVelocity.Z / 2f);
                         player.Task.ClearAll();
-                        Function.Call(Hash.TASK_AIM_GUN_SCRIPTED, player, Function.Call<Hash>(Hash.GET_HASH_KEY, "SCRIPTED_GUN_TASK_PLANE_WING"), 1, 1);
+                        Function.Call(Hash.TASK_AIM_GUN_SCRIPTED, player, StringHash.AtStringHash("SCRIPTED_GUN_TASK_PLANE_WING"), 1, 1);
                         Game.TimeScale = 1f;
                         Function.Call(Hash.PLAY_PAIN, player, 33, 0, 0);
                         player.CanRagdoll = false;
                         player.IsCollisionEnabled = true;
                         LandSound();
-                        if (highGround) player.ApplyDamage(15);
+                        if (highGround)
+                            player.ApplyDamage(15);
                         ++currentScriptStatus;
-                        highGround = false;
                         break;
                     case 3:
                         float LR = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisX);
@@ -337,7 +302,7 @@ namespace Shootdodge
                             EndAudio();
                         if (!Game.IsEnabledControlJustPressed(GTA.Control.Jump) && LR == 0.0f && UD == 0.0f)
                             break;
-                        Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, true);
+                        Game.Player.ForcedAim = true;
                         Game.TimeScale = 1f;
                         EndAudio();
                         player.IsCollisionEnabled = true;
@@ -346,9 +311,10 @@ namespace Shootdodge
                     case 4:
                         if (!Game.IsControlJustPressed(GTA.Control.MoveUpOnly) && !Game.IsControlJustPressed(GTA.Control.MoveDownOnly) && !Game.IsControlJustPressed(GTA.Control.MoveLeftOnly) && !Game.IsControlJustPressed(GTA.Control.MoveRightOnly))
                             break;
+                        highGround = false;
                         player.Task.ClearAll();
                         Game.TimeScale = 1f;
-                        Function.Call(Hash.SET_PLAYER_FORCED_AIM, Game.Player, false);
+                        Game.Player.ForcedAim = false;
                         Function.Call(Hash.PLAY_PAIN, player, 23, 0, 0);
                         player.Task.PlayAnimation("anim@sports@ballgame@handball@", "ball_get_up", -8f, 1f, 1250, AnimationFlags.UseKinematicPhysics, 0.0f);
                         player.IsCollisionEnabled = true;
@@ -377,28 +343,28 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false || DoNothing)
                 return;
-            // new TextElement("Current speed = " + player.Speed, new PointF(50f, 50f), 0.5f).ScaledDraw();;
+            //  new TextElement("controller = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();;
             if (dodgeEnergy < energyCost + energyMod)
                 barColor = Color.Red;
             else barColor = Color.White;
             string texturePath = "scripts/Shootdodge/" + currentTextureName;
-            new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / hudScaleDiv, 262f / hudScaleDiv),
-                new PointF(hudPosX, hudPosY), barColor).Draw();
+            new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv),
+                new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
             if (dodgeEnergy > energyCost)
-                new CustomSprite(texturePath, new SizeF(70f / hudScaleDiv, 262f / hudScaleDiv),
-                    new PointF(hudPosX, hudPosY)).Draw();
+                new CustomSprite(texturePath, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv),
+                    new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
         }
 
         private void EnergyModifier()
         {
             if (!DoNothing)
             {
-                playerWeap = Function.Call<uint>(Hash.GET_SELECTED_PED_WEAPON, player);
-                uint weapType = Function.Call<uint>(Hash.GET_WEAPONTYPE_GROUP, playerWeap);
-                string weapGroup = Utils.GetWeaponGroupFromHash(weapType);
-                if (weapGroup == "Pistol")
+                playerWpn = Function.Call<uint>(Hash.GET_SELECTED_PED_WEAPON, player);
+                uint wpnGroup = Function.Call<uint>(Hash.GET_WEAPONTYPE_GROUP, playerWpn);
+                string groupName = Utils.GetWeaponGroupFromHash(wpnGroup);
+                if (groupName == "Pistol")
                     energyMod = 2.45f;
-                else if (weapGroup == "Shotgun" || weapGroup == "Sniper")
+                else if (groupName == "Shotgun" || groupName == "Sniper")
                     energyMod = 10.0f;
                 else energyMod = 20f;
             }
@@ -406,7 +372,7 @@ namespace Shootdodge
 
         private void KillNFill()
         {
-            WeaponHash weapon = (WeaponHash)playerWeap;
+            WeaponHash weapon = (WeaponHash)playerWpn;
             foreach (Ped pedKilled in World.GetAllPeds())
             {
                 if (pedKilled.Killer == player && pedKilled.CauseOfDeath == weapon && !victims.Contains(pedKilled))
@@ -447,33 +413,45 @@ namespace Shootdodge
             0, 0, 0, 7, false, false, true, false, true);
         }
 
+        private void ResetState()
+        {
+            Function.Call(Hash.ANIMPOSTFX_STOP_ALL);
+            player.CanRagdoll = true;
+            player.IsCollisionEnabled = true;
+            Game.Player.ForcedAim = false;
+            player.Task.ClearAll();
+            EndAudio();
+            Game.TimeScale = 1f;
+            currentScriptStatus = 0;
+        }
+
         private void NerfEnemy()
         {
             if (!Configs.nerfAcc || EnemyNerfed) // Set Ped Accuracy to 0
-               return;
-                EnemyNerfed = true;
-                foreach (Ped allPed in World.GetAllPeds())
+                return;
+            EnemyNerfed = true;
+            foreach (Ped allPed in World.GetAllPeds())
+            {
+                if (allPed != player)
                 {
-                    if (allPed != player)
-                    {
-                        enemies.Add(allPed);
-                        oldEnemyAccuracy.Add(allPed.Accuracy);
-                        allPed.Accuracy = 0;
-                    }
+                    enemies.Add(allPed);
+                    oldEnemyAccuracy.Add(allPed.Accuracy);
+                    allPed.Accuracy = 0;
                 }
+            }
         }
 
         private void ResetEnemy()
         {
             if (!Configs.nerfAcc)
-               return;
-                EnemyNerfed = false;
-                for (int index = 0; index < enemies.Count; index = index - 1 + 1)
-                {
-                    enemies[index].Accuracy = oldEnemyAccuracy[index];
-                    enemies.RemoveAt(index);
-                    oldEnemyAccuracy.RemoveAt(index);
-                }
+                return;
+            EnemyNerfed = false;
+            for (int index = 0; index < enemies.Count; index = index - 1 + 1)
+            {
+                enemies[index].Accuracy = oldEnemyAccuracy[index];
+                enemies.RemoveAt(index);
+                oldEnemyAccuracy.RemoveAt(index);
+            }
         }
 
         private void DiveSound()
@@ -535,6 +513,32 @@ namespace Shootdodge
 
             capsule2.GetResult(out ShapeTestResult result);
             return result;
+        }
+
+        public static bool GamepadTimer()
+        {
+            DateTime currentTime = DateTime.Now;
+
+            if (gamepadPress)
+            {
+                if (currentTime - gamepadTimer <= TimeSpan.FromMilliseconds(500))
+                {
+                    gamepadPress = false;
+                    return true;
+                }
+                else
+                {
+                    gamepadPress = true;
+                    gamepadTimer = currentTime;
+                    return false;
+                }
+            }
+            else
+            {
+                gamepadPress = true;
+                gamepadTimer = currentTime;
+                return false;
+            }
         }
     }
 }
