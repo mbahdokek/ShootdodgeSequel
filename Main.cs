@@ -44,9 +44,10 @@ namespace Shootdodge
             {75.0f, "fg62.5.png"}, {83.5f, "fg75.0.png"}, {93.5f, "fg87.5.png"}, {99.0f, "fg100.png"}
         };
         private string currentTextureName = "fg100.png";
+        private CrClipAsset get_up = new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up");
         private List<Ped> enemies = new List<Ped>();
         private List<Ped> victims = new List<Ped>();
-        private List<int> oldEnemyAccuracy = new List<int>();
+        private List<int> oldAccuracy = new List<int>();
 
         public Main()
         {
@@ -67,8 +68,7 @@ namespace Shootdodge
                 return;
 
             dodgeEnergy -= energyCost + energyMod;
-            float health = player.Health;
-            if (health > 0.5 * player.MaxHealth)
+            if (player.Health > 0.5 * player.MaxHealth)
                 slomoSpeed = Configs.timeScale / 1.125f;
             else slomoSpeed = Configs.timeScale;
             onTopVehicle = false;
@@ -169,7 +169,6 @@ namespace Shootdodge
             if (animName == front_dive)
                 animDict = "move_jump";
             else animDict = "move_avoidance@generic_m";
-            //player.Task.PlayAnimation(animDict, animName, 8f, 1f, -1, AnimationFlags.None, 0.0f);
             player.Task.PlayAnimationAdvanced(new CrClipAsset(animDict, animName), player.Position, player.Rotation + new Vector3(0, 0, heading), AnimationBlendDelta.NormalBlendIn, new AnimationBlendDelta(1f), -1);
             ++currentScriptStatus;
             DiveSound();
@@ -185,14 +184,14 @@ namespace Shootdodge
             if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && onTopVehicle)
                 ApplyForcesFwdHi();
 
-            if (EnemyNerfed && Game.TimeScale == 1.0f)
-                ResetEnemy();
-
             if (player.IsDead || Game.IsPaused || Game.IsCutsceneActive || Game.IsLoading || player.IsRagdoll || player.IsOnFire || player.IsJumping || player.IsFalling
             || player.IsInWater || player.IsSwimming || player.IsInAir || player.IsInVehicle() || !Function.Call<bool>(Hash.IS_PED_ARMED, player, 4)
-            || player.IsPlayingAnimation(new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up")) || player.IsGettingUp)
+            || player.IsPlayingAnimation(get_up) || player.IsGettingUp)
                 DoNothing = true;
             else DoNothing = false;
+
+            if (EnemyNerfed && Game.TimeScale == 1.0f && !DoNothing)
+                ResetEnemy();
 
             player = Game.Player.Character;
             playerVelocity = player.Velocity;
@@ -316,7 +315,8 @@ namespace Shootdodge
                         Game.TimeScale = 1f;
                         Game.Player.ForcedAim = false;
                         Function.Call(Hash.PLAY_PAIN, player, 23, 0, 0);
-                        player.Task.PlayAnimation("anim@sports@ballgame@handball@", "ball_get_up", -8f, 1f, 1250, AnimationFlags.UseKinematicPhysics, 0.0f);
+                        player.SetAnimationSpeed(get_up, 9999f);
+                        player.Task.PlayAnimation(get_up, new AnimationBlendDelta (8f), new AnimationBlendDelta (1f), 1000, AnimationFlags.ExitAfterInterrupted, 0.0f);
                         player.IsCollisionEnabled = true;
                         player.CanRagdoll = true;
                         currentScriptStatus = 0;
@@ -343,16 +343,14 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false || DoNothing)
                 return;
-            //  new TextElement("controller = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();;
+             new TextElement("energy = " + dodgeEnergy, new PointF(50f, 50f), 0.5f).ScaledDraw();
             if (dodgeEnergy < energyCost + energyMod)
                 barColor = Color.Red;
             else barColor = Color.White;
             string texturePath = "scripts/Shootdodge/" + currentTextureName;
-            new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv),
-                new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
+            new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
             if (dodgeEnergy > energyCost)
-                new CustomSprite(texturePath, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv),
-                    new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
+                new CustomSprite(texturePath, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
         }
 
         private void EnergyModifier()
@@ -380,6 +378,8 @@ namespace Shootdodge
                     dodgeEnergy = Math.Min(dodgeEnergy + 10f, maxEnergy);
                     victims.Add(pedKilled);
                 }
+                if(!pedKilled.Exists())
+                    victims.Remove(pedKilled);
             }
         }
 
@@ -435,7 +435,7 @@ namespace Shootdodge
                 if (allPed != player)
                 {
                     enemies.Add(allPed);
-                    oldEnemyAccuracy.Add(allPed.Accuracy);
+                    oldAccuracy.Add(allPed.Accuracy);
                     allPed.Accuracy = 0;
                 }
             }
@@ -448,9 +448,9 @@ namespace Shootdodge
             EnemyNerfed = false;
             for (int index = 0; index < enemies.Count; index = index - 1 + 1)
             {
-                enemies[index].Accuracy = oldEnemyAccuracy[index];
+                enemies[index].Accuracy = oldAccuracy[index];
                 enemies.RemoveAt(index);
-                oldEnemyAccuracy.RemoveAt(index);
+                oldAccuracy.RemoveAt(index);
             }
         }
 
