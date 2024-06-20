@@ -11,7 +11,7 @@ namespace Shootdodge
 {
     public class Main : Script
     {
-        public static int currentScriptStatus;
+        public static int ScriptStatus;
         private string animName;
         private string animDict;
         private Ped player = Game.Player.Character;
@@ -38,12 +38,12 @@ namespace Shootdodge
         private const float maxEnergy = 100.0f;
         private const float energyCost = 10.0f;
         private const float rechargeRate = 0.50f;
-        private readonly Dictionary<float, string> textureNames = new Dictionary<float, string>
+        private readonly Dictionary<float, string> pngNames = new Dictionary<float, string>
         {
             {15.0f, "fg12.5.png"}, {30.0f, "fg25.0.png"},{45.0f, "fg37.5.png"}, {60.0f, "fg50.0.png"},
             {75.0f, "fg62.5.png"}, {83.5f, "fg75.0.png"}, {93.5f, "fg87.5.png"}, {99.0f, "fg100.png"}
         };
-        private string currentTextureName = "fg100.png";
+        private string currentPng = "fg100.png";
         private CrClipAsset get_up = new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up");
         private List<Ped> enemies = new List<Ped>();
         private List<Ped> victims = new List<Ped>();
@@ -64,7 +64,12 @@ namespace Shootdodge
 
         private void ActivateShootdodge()
         {
-            if (DoNothing || Game.TimeScale < 1.0f || dodgeEnergy < energyCost + energyMod)
+            if (ScriptStatus == 1) //Failsafe
+            {
+                ResetState();
+                return;
+            }
+            if (DoNothing || ScriptStatus != 0 || dodgeEnergy < energyCost + energyMod)
                 return;
 
             dodgeEnergy -= energyCost + energyMod;
@@ -79,9 +84,6 @@ namespace Shootdodge
                 soundCue1 = Audio.GetSoundId();
                 soundCue2 = Audio.GetSoundId();
             }
-
-            if (currentScriptStatus != 0)
-                return;
 
             float LR = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisX);
             float FB = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisY);
@@ -170,18 +172,21 @@ namespace Shootdodge
                 animDict = "move_jump";
             else animDict = "move_avoidance@generic_m";
             player.Task.PlayAnimationAdvanced(new CrClipAsset(animDict, animName), player.Position, player.Rotation + new Vector3(0, 0, heading), AnimationBlendDelta.NormalBlendIn, new AnimationBlendDelta(1f), -1);
-            ++currentScriptStatus;
+            ScriptStatus = 1;
             DiveSound();
         }
 
         private void OnTick(object sender, EventArgs e)
         {
-            if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && Vector3.Distance(World.Raycast(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelSpine0, 0f, 0f, 0f),
+            player = Game.Player.Character;
+            playerVelocity = player.Velocity;
+
+            if ((ScriptStatus == 1 || ScriptStatus == 2) && Game.TimeScale < 1.0f && Vector3.Distance(World.Raycast(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelSpine0, 0f, 0f, 0f),
                 Vector3.RelativeBottom, 1000f, IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player).HitPosition, player.Position) < 1.2f)
                 ApplyForcesUpw();
-            if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && player.Speed < 9f)
+            if ((ScriptStatus == 1 || ScriptStatus == 2) && Game.TimeScale < 1.0f && player.Speed < 9f)
                 ApplyForcesFwd();
-            if ((currentScriptStatus == 1 || currentScriptStatus == 2) && Game.TimeScale < 1.0f && onTopVehicle)
+            if ((ScriptStatus == 1 || ScriptStatus == 2) && Game.TimeScale < 1.0f && onTopVehicle)
                 ApplyForcesFwdHi();
 
             if (player.IsDead || Game.IsPaused || Game.IsCutsceneActive || Game.IsLoading || player.IsRagdoll || player.IsOnFire || player.IsJumping || player.IsFalling
@@ -193,13 +198,10 @@ namespace Shootdodge
             if (EnemyNerfed && Game.TimeScale == 1.0f && !DoNothing)
                 ResetEnemy();
 
-            player = Game.Player.Character;
-            playerVelocity = player.Velocity;
-
             if (Configs.controllerOn && Game.LastInputMethod == InputMethod.GamePad && Game.IsEnabledControlJustPressed(GTA.Control.Reload) && GamepadTimer())
                 ActivateShootdodge();
 
-            if (dodgeEnergy < maxEnergy && currentScriptStatus == 0)
+            if (dodgeEnergy < maxEnergy && ScriptStatus == 0)
                 dodgeEnergy = Math.Min(maxEnergy, dodgeEnergy + rechargeRate * Game.LastFrameTime);
 
             if (dodgeEnergy < maxEnergy)
@@ -217,22 +219,22 @@ namespace Shootdodge
             if (player.IsRunning) stanceModifier = 1.2f;
             else stanceModifier = 1.0f;
 
-            if (currentScriptStatus == 1 || currentScriptStatus == 2)
+            if (ScriptStatus == 1 || ScriptStatus == 2)
             {
                 Hud.HideComponentThisFrame(HudComponent.WeaponWheel);
                 Function.Call(Hash.HUD_SUPPRESS_WEAPON_WHEEL_RESULTS_THIS_FRAME);
             }
 
-            if (currentScriptStatus >= 1 && (player.IsDead || player.IsInWater))
+            if (ScriptStatus >= 1 && (player.IsDead || player.IsInWater))
             {
-                Euphoria.SendNMMessage(player, Euphoria.NMMessage.bodyFoetal, 1500);
+                player.SendNMMessage(Euphoria.NMMessage.bodyFoetal, 1500);
                 ResetState();
             }
 
-            if (currentScriptStatus == 2)
+            if (ScriptStatus == 2)
                 World.GetGroundHeight(player.Position, out groundHeight, GetGroundHeightMode.Normal);
 
-            if (currentScriptStatus == 2 && (player.Position.Z > groundHeight + 7.0f))
+            if (ScriptStatus == 2 && (player.Position.Z > groundHeight + 6.5f))
             {
                 player.IsCollisionProof = false;
                 player.SendNMMessage(Euphoria.NMMessage.highFall, 3000);
@@ -240,13 +242,13 @@ namespace Shootdodge
                 ResetState();
             }
 
-            if (currentScriptStatus > 2 && player.IsRagdoll)
+            if (ScriptStatus > 2 && player.IsRagdoll)
             {
                 player.IsCollisionProof = true;
                 ResetState();
             }
 
-            else if ((currentScriptStatus == 1 || currentScriptStatus == 2 || currentScriptStatus == 3)
+            else if ((ScriptStatus == 1 || ScriptStatus == 2)
                      && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, 0f, 0f, 0.075f).DidHit)
             {
                 player.IsCollisionProof = true;
@@ -255,7 +257,7 @@ namespace Shootdodge
             }
             else
             {
-                switch (currentScriptStatus)
+                switch (ScriptStatus)
                 {
                     case 1:
                         if (player.GetAnimationCurrentTime(new CrClipAsset(animDict, animName)) < 0.4f)
@@ -272,12 +274,11 @@ namespace Shootdodge
                         player.IsCollisionEnabled = false;
                         Function.Call(Hash.ANIMPOSTFX_PLAY, "FocusIn", 0, false);
                         Slo_moSound();
-                        ++currentScriptStatus;
+                        ScriptStatus = 2;
                         break;
                     case 2:
-                        if (player.Position.Z > groundHeight + 3.55f)
+                        if (player.Position.Z > groundHeight + 3.5f)
                             highGround = true;
-                        else highGround = false;
                         if (!Capsule2(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelPelvis, 0f, 0f, 0f), 0.290f, 0.0f, 0f, 0f).DidHit)
                             break;
                         Function.Call(Hash.ANIMPOSTFX_STOP, "FocusIn");
@@ -292,7 +293,7 @@ namespace Shootdodge
                         LandSound();
                         if (highGround)
                             player.ApplyDamage(15);
-                        ++currentScriptStatus;
+                        ScriptStatus = 3;
                         break;
                     case 3:
                         float LR = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisX);
@@ -301,25 +302,22 @@ namespace Shootdodge
                             EndAudio();
                         if (!Game.IsEnabledControlJustPressed(GTA.Control.Jump) && LR == 0.0f && UD == 0.0f)
                             break;
-                        Game.Player.ForcedAim = true;
                         Game.TimeScale = 1f;
                         EndAudio();
                         player.IsCollisionEnabled = true;
-                        ++currentScriptStatus;
+                        ScriptStatus = 4;
                         break;
                     case 4:
                         if (!Game.IsControlJustPressed(GTA.Control.MoveUpOnly) && !Game.IsControlJustPressed(GTA.Control.MoveDownOnly) && !Game.IsControlJustPressed(GTA.Control.MoveLeftOnly) && !Game.IsControlJustPressed(GTA.Control.MoveRightOnly))
                             break;
-                        highGround = false;
-                        player.Task.ClearAll();
-                        Game.TimeScale = 1f;
-                        Game.Player.ForcedAim = false;
-                        Function.Call(Hash.PLAY_PAIN, player, 23, 0, 0);
-                        player.SetAnimationSpeed(get_up, 9999f);
-                        player.Task.PlayAnimation(get_up, new AnimationBlendDelta (8f), new AnimationBlendDelta (1f), 1000, AnimationFlags.ExitAfterInterrupted, 0.0f);
-                        player.IsCollisionEnabled = true;
                         player.CanRagdoll = true;
-                        currentScriptStatus = 0;
+                        player.Task.PlayAnimation(get_up, new AnimationBlendDelta(8f), new AnimationBlendDelta(1f), 1000, AnimationFlags.ExitAfterInterrupted, 0.0f);
+                        player.SetAnimationSpeed(get_up, 9999f);
+                        Game.Player.ForcedAim = false;
+                        player.Task.ClearAll();
+                        Function.Call(Hash.PLAY_PAIN, player, 23, 0, 0);
+                        highGround = false;
+                        ScriptStatus = 0;
                         break;
                 }
             }
@@ -329,11 +327,11 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false)
                 return;
-            foreach (var level in textureNames)
+            foreach (var level in pngNames)
             {
                 if ((dodgeEnergy >= level.Key && lastEnergy < level.Key) || (dodgeEnergy < level.Key && lastEnergy >= level.Key))
                 {
-                    currentTextureName = level.Value;
+                    currentPng = level.Value;
                     break;
                 }
             }
@@ -343,11 +341,11 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false || DoNothing)
                 return;
-             new TextElement("energy = " + dodgeEnergy, new PointF(50f, 50f), 0.5f).ScaledDraw();
+            // new TextElement("Status = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();
             if (dodgeEnergy < energyCost + energyMod)
                 barColor = Color.Red;
             else barColor = Color.White;
-            string texturePath = "scripts/Shootdodge/" + currentTextureName;
+            string texturePath = "scripts/Shootdodge/" + currentPng;
             new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
             if (dodgeEnergy > energyCost)
                 new CustomSprite(texturePath, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
@@ -378,7 +376,7 @@ namespace Shootdodge
                     dodgeEnergy = Math.Min(dodgeEnergy + 10f, maxEnergy);
                     victims.Add(pedKilled);
                 }
-                if(!pedKilled.Exists())
+                if (!pedKilled.Exists())
                     victims.Remove(pedKilled);
             }
         }
@@ -422,12 +420,12 @@ namespace Shootdodge
             player.Task.ClearAll();
             EndAudio();
             Game.TimeScale = 1f;
-            currentScriptStatus = 0;
+            ScriptStatus = 0;
         }
 
         private void NerfEnemy()
         {
-            if (!Configs.nerfAcc || EnemyNerfed) // Set Ped Accuracy to 0
+            if (!Configs.nerfAcc || EnemyNerfed)
                 return;
             EnemyNerfed = true;
             foreach (Ped allPed in World.GetAllPeds())
