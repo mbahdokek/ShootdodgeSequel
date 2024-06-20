@@ -2,34 +2,42 @@
 
 Thanks to jedijosh920 for the <a href="https://www.gta5-mods.com/scripts/shootdodge">original mod</a> 
 
-I like cheesy action movies and the shootdodge mod is great. Unfortunately, it's outdated so I took the initiative to revive it to SHVDN3, then I added some stuff that I think the mod needed for balancing the gameplay, to make it work like skill. 
-Showcase video above is from v0.9, if you want to know what changes, read till the end
+I like action movies and Shootdodge's great mod. Unfortunately, it's outdated so I decided to revive it, and added stuffs that I think the mod needed to balance it, to make it work like a skill.
+Showcase video above is from v0.9, new changes below, read till the end. If you ever have a problem installing, please chat me on my discord.
 
 Features:
 <ul type="square">
-<li>Featuring bullet HUD (texture by <a href="https://www.nexusmods.com/maxpayne/mods/19">Dragononandon</a>)</li>
-<li>Bullet Meter acts as a limit to balance gameplay, forces you to think strategically</li>
+<li>Bullet Meter HUD (texture by <a href="https://www.nexusmods.com/maxpayne/mods/19">Dragononandon</a>) acts as a limit to balance gameplay, forces you to think strategically</li>
 <li>Weapon drains bullet meter differently, Pistols drain slower compared to Rifle</li>
 <li>Bullet meter will be filled very slowly, but killing people will fill the time meter faster</li>
 <li>Sound effects implemented</li>
+<li>Better controller support on v1.2 (read Usage below)</li>
 <li>Bullet meter HUD and Sound can be deactivated inside .ini config</li>
-<li>Config for changing time scale and dodging forces</li>
+<li>Config for changing time scale and dodging forces (in case the jump is too high for you, read incompatibility below)</li>
 <li>Character will stay prone on the floor in aiming mode on landing unless move keys are pressed</li>
 </ul>
 
-Requirement:
-ScriptHookVDotNet3, preferably the <a href="https://github.com/scripthookvdotnet/scripthookvdotnet-nightly">Nightly Version</a>
+<b>Requirement:</b>
+ScriptHookVDotNet3. I strongly recommend the <a href="https://github.com/scripthookvdotnet/scripthookvdotnet-nightly">Nightly Version</a>
 This script was made on game version 3179
 
 Bugs: 
 <ul>
-<li>Inconsistent forces. This bug makes flying sometimes very low and short (Hopefully fixed on v1.1)</li>
 <li>Mistakenly choosing melee weapons in the middle of diving will break animation</li>
-<li>Landing on slopes or ground, legs will get through the ground. It looks weird but not important so I'll ignore this</li></ul>
-<b>Incompatibility</b>: a slow-mo mod will conflict if activated simultaneously. Tested SilverFinish's KillCam, it works but after Kill Cam, the dodging will end too because the time reverted. This also includes when choosing weapons, so don't change weapons when you've started the dodge, it will stop the slow-mo prematurely
-<b>New! </b> Physics mod or ragdoll mod will affect this mod. The jump height & push forward force when diving are indeed affected, you need to adjust the forward & upward forces in the config to suit your game if you use one.
-
+<li>Legs will get through the ground when landing on slopes or uneven ground. It looks weird but not important so I'll ignore this</li>
+<li>Inconsistent forces. This bug makes flying sometimes very low and short (Mostly fixed on v1.1)</li></ul>
+<b>Incompatibility</b>: <b>Slow-mo mods</b> will conflict if activated simultaneously. Tested SilverFinish's <b>KillCam</b>, it works but after Kill Cam, the dodging will end too because the time reverted. This also includes when choosing weapons, so don't change weapons when you've started the dodge, it will stop the slow-mo prematurely
+<b>Physics mod or ragdoll mod </b> will affect this mod. The jump height & push forward force when diving are indeed affected, you need to adjust the forward & upward forces in the config to suit your game if you use one.  
+<br />
+<br />
 Changelog:
+<br />
+1.2b
+<ul type="disc">
+<li>Better controller support, now shootdodge by double-clicking Reload button instead of Aim first then Jump. It means no more overlapping with the player rolling, and the button is more reachable</li>
+<li>Changed diagonal leaping direction, char facing correctly</li>
+<li>Default config changed, forces reduced a bit more</li>
+<li>Small code refactoring</li></ul>
 1.1
 <ul type="disc">
 <li>Changed how the force's delivered, I've tested it and now unpredictable forces almost never happen</li>
