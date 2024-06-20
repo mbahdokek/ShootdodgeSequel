@@ -1,6 +1,7 @@
 [![](https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExYW92amI4ZDgzZTQ4dnBweWUzeWp4ZTgyZmNwaDY4c2FiN2dsdG1yYSZlcD12MV9pbnRlcm5hbF9naWZfYnlfaWQmY3Q9Zw/OY6vcGPeFPiNw6liN9/giphy-downsized-large.gif)](http://www.youtube.com/watch?v=kEQCRlDJv-w "Click to play on Youtube.com")
 
-Thanks to jedijosh920 for the <a href="https://www.gta5-mods.com/scripts/shootdodge">original mod</a> 
+Thanks to jedijosh920 for the <a href="https://www.gta5-mods.com/scripts/shootdodge">original mod</a>  <br />
+Please credit jedijosh920 if you use this code for your project
 
 I like action movies and Shootdodge's great mod. Unfortunately, it's outdated so I decided to revive it, and added stuffs that I think the mod needed to balance it, to make it work like a skill.
 Showcase video above is from v0.9, new changes below, read till the end. If you ever have a problem installing, please chat me on my discord.
