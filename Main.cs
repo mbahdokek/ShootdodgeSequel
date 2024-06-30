@@ -5,6 +5,7 @@ using GTA.UI;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Reflection;
 using System.Windows.Forms;
 
 namespace Shootdodge
@@ -12,9 +13,11 @@ namespace Shootdodge
     public class Main : Script
     {
         public static int ScriptStatus;
+        public static Type DualWield;
+        public static FieldInfo DualWieldField;
         private string animName;
         private string animDict;
-        private Ped player = Game.Player.Character;
+        public static Ped player = Game.Player.Character;
         private Vector3 forceDirection;
         private Vector3 playerVelocity;
         private Color barColor;
@@ -38,12 +41,12 @@ namespace Shootdodge
         private const float maxEnergy = 100.0f;
         private const float energyCost = 10.0f;
         private const float rechargeRate = 0.50f;
-        private readonly Dictionary<float, string> pngNames = new Dictionary<float, string>
+        private readonly Dictionary<float, string> hudTxd = new Dictionary<float, string>
         {
-            {15.0f, "fg12.5.png"}, {30.0f, "fg25.0.png"},{45.0f, "fg37.5.png"}, {60.0f, "fg50.0.png"},
-            {75.0f, "fg62.5.png"}, {83.5f, "fg75.0.png"}, {93.5f, "fg87.5.png"}, {99.0f, "fg100.png"}
+            {15.0f, "fg12.5.dds"}, {30.0f, "fg25.0.dds"},{45.0f, "fg37.5.dds"}, {60.0f, "fg50.0.dds"},
+            {75.0f, "fg62.5.dds"}, {83.5f, "fg75.0.dds"}, {93.5f, "fg87.5.dds"}, {99.0f, "fg100.dds"}
         };
-        private string currentPng = "fg100.png";
+        private string currentHud = "fg100.dds";
         private CrClipAsset get_up = new CrClipAsset("anim@sports@ballgame@handball@", "ball_get_up");
         private List<Ped> enemies = new List<Ped>();
         private List<Ped> victims = new List<Ped>();
@@ -53,6 +56,7 @@ namespace Shootdodge
         {
             Tick += new EventHandler(OnTick);
             KeyDown += new KeyEventHandler(OnKeyDown);
+            Utils.CheckDualWield();
         }
 
         private void OnKeyDown(object sender, KeyEventArgs e)
@@ -69,6 +73,10 @@ namespace Shootdodge
                 ResetState();
                 return;
             }
+
+            if (!Configs.IniFound)
+                Notification.PostTicker("Shootdodge Error! Ini not found, please check again. Now using default value", true);
+
             if (DoNothing || ScriptStatus != 0 || dodgeEnergy < energyCost + energyMod)
                 return;
 
@@ -84,7 +92,6 @@ namespace Shootdodge
                 soundCue1 = Audio.GetSoundId();
                 soundCue2 = Audio.GetSoundId();
             }
-
             float LR = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisX);
             float FB = Game.GetControlValueNormalized(GTA.Control.ScriptLeftAxisY);
             if (player.Speed > 9f)
@@ -172,6 +179,8 @@ namespace Shootdodge
                 animDict = "move_jump";
             else animDict = "move_avoidance@generic_m";
             player.Task.PlayAnimationAdvanced(new CrClipAsset(animDict, animName), player.Position, player.Rotation + new Vector3(0, 0, heading), AnimationBlendDelta.NormalBlendIn, new AnimationBlendDelta(1f), -1);
+            if (Configs.shootFast && !Utils.DualWielding())
+                Utils.PlayerDamage(0.5f);
             ScriptStatus = 1;
             DiveSound();
         }
@@ -180,6 +189,12 @@ namespace Shootdodge
         {
             player = Game.Player.Character;
             playerVelocity = player.Velocity;
+
+            //For Camera
+            if (Cam.Active)
+                Cam.Update();
+            if (Cam.Active && ScriptStatus == 0)
+                Cam.Destroy();
 
             if ((ScriptStatus == 1 || ScriptStatus == 2) && Game.TimeScale < 1.0f && Vector3.Distance(World.Raycast(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelSpine0, 0f, 0f, 0f),
                 Vector3.RelativeBottom, 1000f, IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player).HitPosition, player.Position) < 1.2f)
@@ -249,7 +264,7 @@ namespace Shootdodge
             }
 
             else if ((ScriptStatus == 1 || ScriptStatus == 2)
-                     && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, 0f, 0f, 0.075f).DidHit)
+                     && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, new Vector3 (0f, 0f, 0.075f)).DidHit)
             {
                 player.IsCollisionProof = true;
                 player.SendNMMessage(Euphoria.NMMessage.braceForImpact, 1500);
@@ -265,6 +280,9 @@ namespace Shootdodge
                         if (DoNothing || Game.TimeScale < 1.0f)
                             break;
                         Function.Call(Hash.PLAY_PAIN, player, 11, 0, 0);
+                        //Create Camera
+                        if (!Cam.Active && Configs.wideCam)
+                            Cam.Create();
                         Game.Player.ForcedAim = true;
                         player.Task.ClearAll();
                         Function.Call(Hash.TASK_AIM_GUN_SCRIPTED, player, StringHash.AtStringHash("SCRIPTED_GUN_TASK_PLANE_WING"), 1, 1);
@@ -277,9 +295,11 @@ namespace Shootdodge
                         ScriptStatus = 2;
                         break;
                     case 2:
+                        if (Configs.shootFast && !Utils.DualWielding() && Game.IsControlPressed(GTA.Control.Attack))
+                            Utils.FakeShootRate(player);
                         if (player.Position.Z > groundHeight + 3.5f)
                             highGround = true;
-                        if (!Capsule2(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelPelvis, 0f, 0f, 0f), 0.290f, 0.0f, 0f, 0f).DidHit)
+                        if (!Capsule2(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelPelvis, 0f, 0f, 0f), 0.290f, Vector3.Zero).DidHit)
                             break;
                         Function.Call(Hash.ANIMPOSTFX_STOP, "FocusIn");
                         Function.Call(Hash.ANIMPOSTFX_PLAY, "FocusOut", 0, false);
@@ -293,6 +313,8 @@ namespace Shootdodge
                         LandSound();
                         if (highGround)
                             player.ApplyDamage(15);
+                        if (Configs.shootFast && !Utils.DualWielding())
+                            Utils.PlayerDamage(1.0f);
                         ScriptStatus = 3;
                         break;
                     case 3:
@@ -327,11 +349,11 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false)
                 return;
-            foreach (var level in pngNames)
+            foreach (var level in hudTxd)
             {
                 if ((dodgeEnergy >= level.Key && lastEnergy < level.Key) || (dodgeEnergy < level.Key && lastEnergy >= level.Key))
                 {
-                    currentPng = level.Value;
+                    currentHud = level.Value;
                     break;
                 }
             }
@@ -341,14 +363,22 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false || DoNothing)
                 return;
-            // new TextElement("Status = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();
+             //   new TextElement("Dual = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();
             if (dodgeEnergy < energyCost + energyMod)
                 barColor = Color.Red;
             else barColor = Color.White;
-            string texturePath = "scripts/Shootdodge/" + currentPng;
-            new CustomSprite("scripts/Shootdodge/bg.png", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
-            if (dodgeEnergy > energyCost)
-                new CustomSprite(texturePath, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
+            string Path = Configs.texturePath + currentHud;
+            try
+            {
+                new CustomSprite(Configs.texturePath + "bg.dds", new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY), barColor).Draw();
+                if (dodgeEnergy > energyCost)
+                    new CustomSprite(Path, new SizeF(70f / Configs.hudScaleDiv, 262f / Configs.hudScaleDiv), new PointF(Configs.hudPosX, Configs.hudPosY)).Draw();
+            }
+            catch (Exception ex)
+            {
+                Notification.PostTicker($"Shootdodge Error! textures not found: {ex.Message}", true);
+                Configs.enableHud = false;
+            }
         }
 
         private void EnergyModifier()
@@ -420,6 +450,8 @@ namespace Shootdodge
             player.Task.ClearAll();
             EndAudio();
             Game.TimeScale = 1f;
+            if (Configs.shootFast && !Utils.DualWielding())
+                Utils.PlayerDamage(1.0f);
             ScriptStatus = 0;
         }
 
@@ -433,6 +465,8 @@ namespace Shootdodge
                 if (allPed != player)
                 {
                     enemies.Add(allPed);
+
+
                     oldAccuracy.Add(allPed.Accuracy);
                     allPed.Accuracy = 0;
                 }
@@ -474,6 +508,7 @@ namespace Shootdodge
             Function.Call(Hash.SET_AUDIO_SCENE_VARIABLE, "HUNTING_02_SETTINGS", "Breathing", 1.0f);
             slomoSound.PlaySoundFromEntity(player, "Heart_Breathing");
             Function.Call(Hash.SET_VARIABLE_ON_SOUND, slomoSound, "Concentration", 20f);
+            Function.Call(Hash.ACTIVATE_AUDIO_SLOWMO_MODE, "SLOWMO_BIG_SCORE_JUMP");
         }
 
         private void EndAudio()
@@ -487,13 +522,14 @@ namespace Shootdodge
             slomoSound.Release();
             soundCue2.Release();
             Function.Call(Hash.RELEASE_NAMED_SCRIPT_AUDIO_BANK, "HUNTING_MAIN_A");
+            Function.Call(Hash.DEACTIVATE_AUDIO_SLOWMO_MODE, "SLOWMO_BIG_SCORE_JUMP");
         }
 
-        public ShapeTestResult Capsule1(Vector3 position, float radius, float protrudeX, float protrudeY, float protrudeZ)
+        public ShapeTestResult Capsule1(Vector3 position, float radius, Vector3 offset)
         {
             ShapeTestHandle capsule1 = ShapeTest.StartTestCapsule(
               position,
-              position + new Vector3(protrudeX, protrudeY, protrudeZ),
+              position + offset,
               radius,
               IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player);
 
@@ -501,11 +537,11 @@ namespace Shootdodge
             return result;
         }
 
-        public ShapeTestResult Capsule2(Vector3 position, float radius, float protrudeX, float protrudeY, float protrudeZ)
+        public ShapeTestResult Capsule2(Vector3 position, float radius, Vector3 offset)
         {
             ShapeTestHandle capsule2 = ShapeTest.StartTestCapsule(
-            position + new Vector3(protrudeX, protrudeY, protrudeZ),
-            position + new Vector3(protrudeX, protrudeY, protrudeZ),
+            position + offset,
+            position + offset,
             radius,
             IntersectFlags.Peds | IntersectFlags.Map | IntersectFlags.Vehicles | IntersectFlags.Objects, player);
 
