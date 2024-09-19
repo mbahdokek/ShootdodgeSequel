@@ -12,6 +12,8 @@ namespace Shootdodge
 {
     public class Main : Script
     {
+        DateTime shakeTime;
+        bool camShaked;
         public static int ScriptStatus;
         public static Type DualWield;
         public static FieldInfo DualWieldField;
@@ -181,6 +183,7 @@ namespace Shootdodge
             player.Task.PlayAnimationAdvanced(new CrClipAsset(animDict, animName), player.Position, player.Rotation + new Vector3(0, 0, heading), AnimationBlendDelta.NormalBlendIn, new AnimationBlendDelta(1f), -1);
             if (Configs.shootFast && !Utils.DualWielding())
                 Utils.PlayerDamage(0.5f);
+            camShaked = false;
             ScriptStatus = 1;
             DiveSound();
         }
@@ -234,6 +237,23 @@ namespace Shootdodge
             if (player.IsRunning) stanceModifier = 1.2f;
             else stanceModifier = 1.0f;
 
+
+            if (ScriptStatus == 3 && !GameplayCamera.IsShaking && !camShaked)
+            {
+                GameplayCamera.Shake(CameraShake.Jolt, 3f);
+                shakeTime = DateTime.Now;
+            }
+            if (GameplayCamera.IsShaking)
+            {
+                TimeSpan shakeLapse = DateTime.Now - shakeTime;
+                if (shakeLapse.TotalSeconds >= 1)
+                {
+                    GameplayCamera.StopShaking();
+                    camShaked = true;
+                }
+
+            }
+
             if (ScriptStatus == 1 || ScriptStatus == 2)
             {
                 Hud.HideComponentThisFrame(HudComponent.WeaponWheel);
@@ -264,7 +284,7 @@ namespace Shootdodge
             }
 
             else if ((ScriptStatus == 1 || ScriptStatus == 2)
-                     && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, new Vector3 (0f, 0f, 0.075f)).DidHit)
+                     && Capsule1(Function.Call<Vector3>(Hash.GET_PED_BONE_COORDS, player, Bone.SkelHead, 0f, 0f, 0f), 0.105f, new Vector3(0f, 0f, 0.075f)).DidHit)
             {
                 player.IsCollisionProof = true;
                 player.SendNMMessage(Euphoria.NMMessage.braceForImpact, 1500);
@@ -363,7 +383,7 @@ namespace Shootdodge
         {
             if (Configs.enableHud == false || DoNothing)
                 return;
-             //   new TextElement("Dual = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();
+            //   new TextElement("Dual = " + , new PointF(50f, 50f), 0.5f).ScaledDraw();
             if (dodgeEnergy < energyCost + energyMod)
                 barColor = Color.Red;
             else barColor = Color.White;
@@ -465,8 +485,6 @@ namespace Shootdodge
                 if (allPed != player)
                 {
                     enemies.Add(allPed);
-
-
                     oldAccuracy.Add(allPed.Accuracy);
                     allPed.Accuracy = 0;
                 }

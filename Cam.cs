@@ -26,7 +26,7 @@ namespace Shootdodge
                     break;
             }
             camera = Camera.Create(ScriptedCameraNameHash.DefaultScriptedCamera, GameplayCamera.Position, GameplayCamera.Rotation, fov, true);
-            ScriptCameraDirector.StartRendering(false);
+            ScriptCameraDirector.StartRendering();
             Timer = DateTime.Now;
             Active = true;
         }
